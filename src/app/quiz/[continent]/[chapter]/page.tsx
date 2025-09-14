@@ -156,195 +156,204 @@ export default function QuizPage() {
     return question.explanation || ''
   }
 
- const calculateQuestionScore = (question: Question, userAnswer: string, hintsUsed: number): number => {
-  console.log('=== CALCUL SCORE QUESTION ===')
-  console.log('Question:', question.question_text)
-  console.log('Réponse utilisateur:', userAnswer)
-  console.log('Type de question:', question.question_type)
-  
-  const correctAnswer = getCorrectAnswer(question)
-  console.log('Réponse correcte:', correctAnswer)
-  
-  let isCorrect = false
-
-  if (question.question_type === 'multiple_choice') {
-    isCorrect = userAnswer === correctAnswer
-    console.log('QCM - Comparaison exacte:', isCorrect)
-  } else {
-    // Pour les questions texte libre, comparaison simple
-    isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-    console.log('Texte libre - Comparaison:', isCorrect)
-  }
-
-  if (!isCorrect) {
-    console.log('❌ Réponse incorrecte, 0 point')
-    return 0
-  }
-
-  // Points de base selon la difficulté
-  let points = question.points_base || DIFFICULTY_CONFIG[question.difficulty].points
-  console.log('Points de base:', points)
-  console.log('Indices utilisés:', hintsUsed)
-
-  // Malus pour les indices utilisés
-  points = Math.max(1, points - hintsUsed)
-  console.log('Points finaux:', points)
-
-  return points
-}
-
-const handleNextQuestion = useCallback(async () => {
-  if (!currentQuestion) return
-
-  console.log('=== NEXT QUESTION ===')
-  console.log('Question actuelle:', currentQuestion.question_text)
-  console.log('Réponse sélectionnée:', selectedAnswer)
-  console.log('Indices utilisés pour cette question:', hintsUsedForQuestion)
-
-  setShowResult(true)
-
-  // Calculer le score pour cette question
-  const questionScore = calculateQuestionScore(
-    currentQuestion, 
-    selectedAnswer, 
-    hintsUsedForQuestion
-  )
-  
-  console.log('Score calculé pour cette question:', questionScore)
-  
-  setScore(prev => {
-    console.log('Score avant:', prev, 'Score après:', prev + questionScore)
-    return prev + questionScore
-  })
-  
-  setXpGained(prev => {
-    console.log('XP avant:', prev, 'XP après:', prev + questionScore)
-    return prev + questionScore
-  })
-
-  // Attendre un peu pour montrer le résultat
-  setTimeout(() => {
-    setShowResult(false)
+  const calculateQuestionScore = (question: Question, userAnswer: string, hintsUsed: number): number => {
+    console.log('=== CALCUL SCORE QUESTION ===')
+    console.log('Question:', question.question_text)
+    console.log('Réponse utilisateur:', userAnswer)
+    console.log('Type de question:', question.question_type)
     
-    if (isLastQuestion) {
-      console.log('=== QUIZ TERMINÉ ===')
-      console.log('XP total final:', score + questionScore)
-      // Quiz terminé
-      setQuizCompleted(true)
-      saveQuizResults()
+    const correctAnswer = getCorrectAnswer(question)
+    console.log('Réponse correcte:', correctAnswer)
+    
+    let isCorrect = false
+
+    if (question.question_type === 'multiple_choice') {
+      isCorrect = userAnswer === correctAnswer
+      console.log('QCM - Comparaison exacte:', isCorrect)
     } else {
-      // Question suivante
-      const nextIndex = currentQuestionIndex + 1
-      setCurrentQuestionIndex(nextIndex)
-      setSelectedAnswer(answers[nextIndex] || '')
-      setHintsUsedForQuestion(0)
-      
-      // Réinitialiser le timer si nécessaire
-      if (questions[nextIndex]?.time_limit) {
-        setTimeLeft(questions[nextIndex].time_limit)
-      }
-    }
-  }, 2000)
-}, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions])
-
- const saveQuizResults = async () => {
-  try {
-    console.log('=== DEBUT SAUVEGARDE ===')
-    console.log('User ID:', user.id)
-    console.log('XP to gain:', xpGained)
-    console.log('XP état actuel:', xpGained) // AJOUTEZ CETTE LIGNE
-    console.log('Score état actuel:', score)  // AJOUTEZ CETTE LIGNE
-
-    // Récupérer d'abord le profil actuel
-    const { data: currentProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('xp, total_xp')
-      .eq('id', user.id)
-      .single()
-
-    console.log('Current profile:', currentProfile)
-    console.log('Profile error:', profileError)
-
-    if (profileError) {
-      console.error('Erreur récupération profil:', profileError)
-      return
+      // Pour les questions texte libre, comparaison simple
+      isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
+      console.log('Texte libre - Comparaison:', isCorrect)
     }
 
-    // Créer une session de quiz
-    const { data: session, error: sessionError } = await supabase
-      .from('quiz_sessions')
-      .insert({
-        student_id: user.id,
-        chapter_id: chapterId,
-        status: 'completed',
-        score,
-        xp_gained: xpGained,
-        time_spent: Date.now() - startTime,
-        completed_at: new Date().toISOString()
-      })
-      .select()
-      .single()
-
-    console.log('Session créée:', session)
-
-    if (sessionError) {
-      console.error('Session error:', sessionError)
-      return
+    if (!isCorrect) {
+      console.log('❌ Réponse incorrecte, 0 point')
+      return 0
     }
 
-    // Sauvegarder les réponses individuelles
-    if (session) {
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i]
-        const userAnswer = answers[i] || ''
-        const correctAnswer = getCorrectAnswer(question)
-        const isCorrect = userAnswer === correctAnswer
-        const hintsUsed = usedHints.filter(h => Math.floor(h / 100) === i).length
+    // Points de base selon la difficulté
+    let points = question.points_base || DIFFICULTY_CONFIG[question.difficulty].points
+    console.log('Points de base:', points)
+    console.log('Indices utilisés:', hintsUsed)
 
-        await supabase.from('student_answers').insert({
-          session_id: session.id,
-          question_id: question.id,
-          student_answer: userAnswer,
-          is_correct: isCorrect,
-          time_taken: 30,
-          hints_used: hintsUsed,
-          xp_earned: calculateQuestionScore(question, userAnswer, hintsUsed)
-        })
-      }
-    }
+    // Malus pour les indices utilisés
+    points = Math.max(1, points - hintsUsed)
+    console.log('Points finaux:', points)
 
-    // Mettre à jour le profil de l'élève avec les nouveaux totaux
-    const newXP = (currentProfile?.xp || 0) + xpGained
-    const newTotalXP = (currentProfile?.total_xp || 0) + xpGained
-
-    console.log('Calculs XP:')
-    console.log('- XP actuel:', currentProfile?.xp || 0)
-    console.log('- XP à ajouter:', xpGained)
-    console.log('- Nouveau XP:', newXP)
-    console.log('- Nouveau Total XP:', newTotalXP)
-
-    const { data: updateResult, error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        xp: newXP,
-        total_xp: newTotalXP,
-        last_activity: new Date().toISOString()
-      })
-      .eq('id', user.id)
-
-    console.log('Résultat mise à jour:', updateResult)
-    console.log('Erreur mise à jour:', updateError)
-
-    if (updateError) {
-      console.error('Erreur lors de la mise à jour du profil:', updateError)
-    } else {
-      console.log('Quiz results saved successfully!')
-    }
-
-  } catch (error) {
-    console.error('Error saving quiz results:', error)
+    return points
   }
-}
+
+  const handleNextQuestion = useCallback(async () => {
+    if (!currentQuestion) return
+
+    console.log('=== NEXT QUESTION ===')
+    console.log('Question actuelle:', currentQuestion.question_text)
+    console.log('Réponse sélectionnée:', selectedAnswer)
+    console.log('Indices utilisés pour cette question:', hintsUsedForQuestion)
+
+    setShowResult(true)
+
+    // Calculer le score pour cette question
+    const questionScore = calculateQuestionScore(
+      currentQuestion, 
+      selectedAnswer, 
+      hintsUsedForQuestion
+    )
+    
+    console.log('Score calculé pour cette question:', questionScore)
+
+    // Calculer les nouveaux totaux
+    const newScore = score + questionScore
+    const newXpGained = xpGained + questionScore
+    
+    console.log('Score avant:', score, 'Score après:', newScore)
+    console.log('XP avant:', xpGained, 'XP après:', newXpGained)
+    
+    // Mettre à jour les états
+    setScore(newScore)
+    setXpGained(newXpGained)
+
+    // Attendre un peu pour montrer le résultat
+    setTimeout(() => {
+      setShowResult(false)
+      
+      if (isLastQuestion) {
+        console.log('=== QUIZ TERMINÉ ===')
+        console.log('Score final:', newScore)
+        console.log('XP total final:', newXpGained)
+        // Quiz terminé - passer les valeurs finales calculées
+        setQuizCompleted(true)
+        saveQuizResults(newScore, newXpGained)
+      } else {
+        // Question suivante
+        const nextIndex = currentQuestionIndex + 1
+        setCurrentQuestionIndex(nextIndex)
+        setSelectedAnswer(answers[nextIndex] || '')
+        setHintsUsedForQuestion(0)
+        
+        // Réinitialiser le timer si nécessaire
+        if (questions[nextIndex]?.time_limit) {
+          setTimeLeft(questions[nextIndex].time_limit)
+        }
+      }
+    }, 2000)
+  }, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions, score, xpGained])
+
+  // CORRECTION : Passer les valeurs finales en paramètres
+  const saveQuizResults = async (finalScore?: number, finalXpGained?: number) => {
+    try {
+      console.log('=== DEBUT SAUVEGARDE ===')
+      console.log('STACK TRACE:', new Error().stack?.split('\n')[1]) // Voir d'où vient l'appel
+      console.log('User ID:', user.id)
+      
+      // Utiliser les valeurs passées en paramètres ou les états actuels
+      const scoreToSave = finalScore !== undefined ? finalScore : score
+      const xpToSave = finalXpGained !== undefined ? finalXpGained : xpGained
+      
+      console.log('Score à sauvegarder:', scoreToSave)
+      console.log('XP à sauvegarder:', xpToSave)
+
+      // Récupérer d'abord le profil actuel
+      const { data: currentProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('xp, total_xp')
+        .eq('id', user.id)
+        .single()
+
+      console.log('Current profile:', currentProfile)
+      console.log('Profile error:', profileError)
+
+      if (profileError) {
+        console.error('Erreur récupération profil:', profileError)
+        return
+      }
+
+      // Créer une session de quiz
+      const { data: session, error: sessionError } = await supabase
+        .from('quiz_sessions')
+        .insert({
+          student_id: user.id,
+          chapter_id: chapterId,
+          status: 'completed',
+          score: scoreToSave,
+          xp_gained: xpToSave,
+          time_spent: Date.now() - startTime,
+          completed_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      console.log('Session créée:', session)
+
+      if (sessionError) {
+        console.error('Session error:', sessionError)
+        return
+      }
+
+      // Sauvegarder les réponses individuelles
+      if (session) {
+        for (let i = 0; i < questions.length; i++) {
+          const question = questions[i]
+          const userAnswer = answers[i] || ''
+          const correctAnswer = getCorrectAnswer(question)
+          const isCorrect = userAnswer === correctAnswer
+          const hintsUsed = usedHints.filter(h => Math.floor(h / 100) === i).length
+
+          await supabase.from('student_answers').insert({
+            session_id: session.id,
+            question_id: question.id,
+            student_answer: userAnswer,
+            is_correct: isCorrect,
+            time_taken: 30,
+            hints_used: hintsUsed,
+            xp_earned: calculateQuestionScore(question, userAnswer, hintsUsed)
+          })
+        }
+      }
+
+      // Mettre à jour le profil de l'élève avec les nouveaux totaux
+      const newXP = (currentProfile?.xp || 0) + xpToSave
+      const newTotalXP = (currentProfile?.total_xp || 0) + xpToSave
+
+      console.log('Calculs XP:')
+      console.log('- XP actuel:', currentProfile?.xp || 0)
+      console.log('- XP à ajouter:', xpToSave)
+      console.log('- Nouveau XP:', newXP)
+      console.log('- Nouveau Total XP:', newTotalXP)
+
+      const { data: updateResult, error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          xp: newXP,
+          total_xp: newTotalXP,
+          last_activity: new Date().toISOString()
+        })
+        .eq('id', user.id)
+
+      console.log('Résultat mise à jour:', updateResult)
+      console.log('Erreur mise à jour:', updateError)
+
+      if (updateError) {
+        console.error('Erreur lors de la mise à jour du profil:', updateError)
+      } else {
+        console.log('Quiz results saved successfully!')
+      }
+
+    } catch (error) {
+      console.error('Error saving quiz results:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
