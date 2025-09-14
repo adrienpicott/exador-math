@@ -157,63 +157,94 @@ export default function QuizPage() {
   }
 
   const calculateQuestionScore = (question: Question, userAnswer: string, hintsUsed: number): number => {
-    const correctAnswer = getCorrectAnswer(question)
-    let isCorrect = false
+  console.log('=== CALCUL SCORE QUESTION ===')
+  console.log('Question:', question.question_text)
+  console.log('Réponse utilisateur:', userAnswer)
+  console.log('Type de question:', question.question_type)
+  
+  const correctAnswer = getCorrectAnswer(question)
+  console.log('Réponse correcte:', correctAnswer)
+  
+  let isCorrect = false
 
-    if (question.question_type === 'multiple_choice') {
-      isCorrect = userAnswer === correctAnswer
-    } else {
-      // Pour les questions texte libre, comparaison simple
-      isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-    }
-
-    if (!isCorrect) return 0
-
-    // Points de base selon la difficulté
-    let points = question.points_base || DIFFICULTY_CONFIG[question.difficulty].points
-
-    // Malus pour les indices utilisés
-    points = Math.max(1, points - hintsUsed)
-
-    return points
+  if (question.question_type === 'multiple_choice') {
+    isCorrect = userAnswer === correctAnswer
+    console.log('QCM - Comparaison exacte:', isCorrect)
+  } else {
+    // Pour les questions texte libre, comparaison simple
+    isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
+    console.log('Texte libre - Comparaison:', isCorrect)
   }
 
-  const handleNextQuestion = useCallback(async () => {
-    if (!currentQuestion) return
+  if (!isCorrect) {
+    console.log('❌ Réponse incorrecte, 0 point')
+    return 0
+  }
 
-    setShowResult(true)
+  // Points de base selon la difficulté
+  let points = question.points_base || DIFFICULTY_CONFIG[question.difficulty].points
+  console.log('Points de base:', points)
+  console.log('Indices utilisés:', hintsUsed)
 
-    // Calculer le score pour cette question
-    const questionScore = calculateQuestionScore(
-      currentQuestion, 
-      selectedAnswer, 
-      hintsUsedForQuestion
-    )
-    setScore(prev => prev + questionScore)
-    setXpGained(prev => prev + questionScore)
+  // Malus pour les indices utilisés
+  points = Math.max(1, points - hintsUsed)
+  console.log('Points finaux:', points)
 
-    // Attendre un peu pour montrer le résultat
-    setTimeout(() => {
-      setShowResult(false)
+  return points
+}
+
+const handleNextQuestion = useCallback(async () => {
+  if (!currentQuestion) return
+
+  console.log('=== NEXT QUESTION ===')
+  console.log('Question actuelle:', currentQuestion.question_text)
+  console.log('Réponse sélectionnée:', selectedAnswer)
+  console.log('Indices utilisés pour cette question:', hintsUsedForQuestion)
+
+  setShowResult(true)
+
+  // Calculer le score pour cette question
+  const questionScore = calculateQuestionScore(
+    currentQuestion, 
+    selectedAnswer, 
+    hintsUsedForQuestion
+  )
+  
+  console.log('Score calculé pour cette question:', questionScore)
+  
+  setScore(prev => {
+    console.log('Score avant:', prev, 'Score après:', prev + questionScore)
+    return prev + questionScore
+  })
+  
+  setXpGained(prev => {
+    console.log('XP avant:', prev, 'XP après:', prev + questionScore)
+    return prev + questionScore
+  })
+
+  // Attendre un peu pour montrer le résultat
+  setTimeout(() => {
+    setShowResult(false)
+    
+    if (isLastQuestion) {
+      console.log('=== QUIZ TERMINÉ ===')
+      // Quiz terminé
+      setQuizCompleted(true)
+      saveQuizResults()
+    } else {
+      // Question suivante
+      const nextIndex = currentQuestionIndex + 1
+      setCurrentQuestionIndex(nextIndex)
+      setSelectedAnswer(answers[nextIndex] || '')
+      setHintsUsedForQuestion(0)
       
-      if (isLastQuestion) {
-        // Quiz terminé
-        setQuizCompleted(true)
-        saveQuizResults()
-      } else {
-        // Question suivante
-        const nextIndex = currentQuestionIndex + 1
-        setCurrentQuestionIndex(nextIndex)
-        setSelectedAnswer(answers[nextIndex] || '')
-        setHintsUsedForQuestion(0)
-        
-        // Réinitialiser le timer si nécessaire
-        if (questions[nextIndex]?.time_limit) {
-          setTimeLeft(questions[nextIndex].time_limit)
-        }
+      // Réinitialiser le timer si nécessaire
+      if (questions[nextIndex]?.time_limit) {
+        setTimeLeft(questions[nextIndex].time_limit)
       }
-    }, 2000)
-  }, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions])
+    }
+  }, 2000)
+}, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions])
 
  const saveQuizResults = async () => {
   try {
