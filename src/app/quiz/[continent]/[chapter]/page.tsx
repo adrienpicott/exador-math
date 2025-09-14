@@ -156,7 +156,7 @@ export default function QuizPage() {
     return question.explanation || ''
   }
 
-  const calculateQuestionScore = (question: Question, userAnswer: string, hintsUsed: number): number => {
+ const calculateQuestionScore = (question: Question, userAnswer: string, hintsUsed: number): number => {
   console.log('=== CALCUL SCORE QUESTION ===')
   console.log('Question:', question.question_text)
   console.log('Réponse utilisateur:', userAnswer)
@@ -228,6 +228,7 @@ const handleNextQuestion = useCallback(async () => {
     
     if (isLastQuestion) {
       console.log('=== QUIZ TERMINÉ ===')
+      console.log('XP total final:', score + questionScore)
       // Quiz terminé
       setQuizCompleted(true)
       saveQuizResults()
