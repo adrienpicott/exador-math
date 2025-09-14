@@ -28,7 +28,7 @@ export default function CoachDashboard() {
           .eq('id', user.id)
           .single()
 
-        if (profile?.role !== 'coach') {
+        if ((profile as any)?.role !== 'coach') {
           window.location.href = '/dashboard'
           return
         }

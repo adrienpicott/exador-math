@@ -85,15 +85,15 @@ function AuthForm() {
             .single()
 
           // Rediriger selon le rôle
-          if (profile?.role === 'coach') {
+          if ((profile as any)?.role === 'coach') {
             router.push('/dashboard/coach')
           } else {
             router.push('/dashboard')
           }
         }
       }
-    } catch (err) {
-      setError('Une erreur inattendue s\'est produite')
+    } catch (error) {
+      setError('Une erreur inattendue s est produite')
     } finally {
       setIsLoading(false)
     }
@@ -143,8 +143,8 @@ function AuthForm() {
           </h2>
           <p className="text-gray-600 mt-2">
             {isSignup 
-              ? `Rejoins l'aventure mathématique d'Exador !` 
-              : 'Bon retour dans les continents d\'Exador !'
+              ? 'Rejoins l aventure mathématique d Exador !' 
+              : 'Bon retour dans les continents d Exador !'
             }
           </p>
         </div>
@@ -289,7 +289,7 @@ function AuthForm() {
                     href={`/auth?mode=signup&role=${role}`}
                     className="text-blue-600 hover:underline font-medium"
                   >
-                    S'inscrire
+                    S inscrire
                   </Link>
                 </span>
               )}
@@ -311,7 +311,7 @@ function AuthForm() {
           {/* Retour à l'accueil */}
           <div className="mt-4 text-center">
             <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
-              ← Retour à l'accueil
+              ← Retour à l accueil
             </Link>
           </div>
         </div>
