@@ -252,6 +252,8 @@ const handleNextQuestion = useCallback(async () => {
     console.log('=== DEBUT SAUVEGARDE ===')
     console.log('User ID:', user.id)
     console.log('XP to gain:', xpGained)
+    console.log('XP état actuel:', xpGained) // AJOUTEZ CETTE LIGNE
+    console.log('Score état actuel:', score)  // AJOUTEZ CETTE LIGNE
 
     // Récupérer d'abord le profil actuel
     const { data: currentProfile, error: profileError } = await supabase
