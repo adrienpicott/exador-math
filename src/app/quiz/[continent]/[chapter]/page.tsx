@@ -216,57 +216,74 @@ export default function QuizPage() {
   }, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions])
 
   const saveQuizResults = async () => {
-    try {
-      // Créer une session de quiz
-      const { data: session } = await supabase
-        .from('quiz_sessions')
-        .insert({
-          student_id: user.id,
-          chapter_id: chapterId,
-          status: 'completed',
-          score,
-          xp_gained: xpGained,
-          time_spent: Date.now() - startTime,
-          completed_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+  try {
+    // Récupérer d'abord le profil actuel
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('xp, total_xp')
+      .eq('id', user.id)
+      .single()
 
-      // Sauvegarder les réponses individuelles
-      if (session) {
-        const answerPromises = questions.map((question, index) => {
-          const userAnswer = answers[index]
-          const isCorrect = userAnswer === getCorrectAnswer(question)
-          const hintsUsed = usedHints.filter(h => Math.floor(h / 100) === index).length
+    // Créer une session de quiz
+    const { data: session, error: sessionError } = await supabase
+      .from('quiz_sessions')
+      .insert({
+        student_id: user.id,
+        chapter_id: chapterId,
+        status: 'completed',
+        score,
+        xp_gained: xpGained,
+        time_spent: Date.now() - startTime,
+        completed_at: new Date().toISOString()
+      })
+      .select()
+      .single()
 
-          return supabase.from('student_answers').insert({
-            session_id: session.id,
-            question_id: question.id,
-            student_answer: userAnswer,
-            is_correct: isCorrect,
-            time_taken: 30, // À améliorer avec le vrai temps
-            hints_used: hintsUsed,
-            xp_earned: calculateQuestionScore(question, userAnswer, hintsUsed)
-          })
-        })
-
-        await Promise.all(answerPromises)
-      }
-
-      // Mettre à jour le profil de l'élève
-      await supabase
-        .from('profiles')
-        .update({
-          xp: supabase.raw(`xp + ${xpGained}`),
-          total_xp: supabase.raw(`total_xp + ${xpGained}`),
-          last_activity: new Date().toISOString()
-        })
-        .eq('id', user.id)
-
-    } catch (error) {
-      console.error('Error saving quiz results:', error)
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      return
     }
+
+    // Sauvegarder les réponses individuelles
+    if (session) {
+      for (let i = 0; i < questions.length; i++) {
+        const question = questions[i]
+        const userAnswer = answers[i] || ''
+        const correctAnswer = getCorrectAnswer(question)
+        const isCorrect = userAnswer === correctAnswer
+        const hintsUsed = usedHints.filter(h => Math.floor(h / 100) === i).length
+
+        await supabase.from('student_answers').insert({
+          session_id: session.id,
+          question_id: question.id,
+          student_answer: userAnswer,
+          is_correct: isCorrect,
+          time_taken: 30, // À améliorer avec le vrai temps
+          hints_used: hintsUsed,
+          xp_earned: calculateQuestionScore(question, userAnswer, hintsUsed)
+        })
+      }
+    }
+
+    // Mettre à jour le profil de l'élève avec les nouveaux totaux
+    const newXP = (currentProfile?.xp || 0) + xpGained
+    const newTotalXP = (currentProfile?.total_xp || 0) + xpGained
+
+    await supabase
+      .from('profiles')
+      .update({
+        xp: newXP,
+        total_xp: newTotalXP,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', user.id)
+
+    console.log('Quiz results saved successfully!')
+
+  } catch (error) {
+    console.error('Error saving quiz results:', error)
   }
+}
 
   if (loading) {
     return (
