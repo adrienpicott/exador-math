@@ -215,14 +215,26 @@ export default function QuizPage() {
     }, 2000)
   }, [currentQuestion, selectedAnswer, hintsUsedForQuestion, isLastQuestion, currentQuestionIndex, answers, questions])
 
-  const saveQuizResults = async () => {
+ const saveQuizResults = async () => {
   try {
+    console.log('=== DEBUT SAUVEGARDE ===')
+    console.log('User ID:', user.id)
+    console.log('XP to gain:', xpGained)
+
     // Récupérer d'abord le profil actuel
-    const { data: currentProfile } = await supabase
+    const { data: currentProfile, error: profileError } = await supabase
       .from('profiles')
       .select('xp, total_xp')
       .eq('id', user.id)
       .single()
+
+    console.log('Current profile:', currentProfile)
+    console.log('Profile error:', profileError)
+
+    if (profileError) {
+      console.error('Erreur récupération profil:', profileError)
+      return
+    }
 
     // Créer une session de quiz
     const { data: session, error: sessionError } = await supabase
@@ -238,6 +250,8 @@ export default function QuizPage() {
       })
       .select()
       .single()
+
+    console.log('Session créée:', session)
 
     if (sessionError) {
       console.error('Session error:', sessionError)
@@ -258,7 +272,7 @@ export default function QuizPage() {
           question_id: question.id,
           student_answer: userAnswer,
           is_correct: isCorrect,
-          time_taken: 30, // À améliorer avec le vrai temps
+          time_taken: 30,
           hints_used: hintsUsed,
           xp_earned: calculateQuestionScore(question, userAnswer, hintsUsed)
         })
@@ -269,7 +283,13 @@ export default function QuizPage() {
     const newXP = (currentProfile?.xp || 0) + xpGained
     const newTotalXP = (currentProfile?.total_xp || 0) + xpGained
 
-    await supabase
+    console.log('Calculs XP:')
+    console.log('- XP actuel:', currentProfile?.xp || 0)
+    console.log('- XP à ajouter:', xpGained)
+    console.log('- Nouveau XP:', newXP)
+    console.log('- Nouveau Total XP:', newTotalXP)
+
+    const { data: updateResult, error: updateError } = await supabase
       .from('profiles')
       .update({
         xp: newXP,
@@ -278,13 +298,19 @@ export default function QuizPage() {
       })
       .eq('id', user.id)
 
-    console.log('Quiz results saved successfully!')
+    console.log('Résultat mise à jour:', updateResult)
+    console.log('Erreur mise à jour:', updateError)
+
+    if (updateError) {
+      console.error('Erreur lors de la mise à jour du profil:', updateError)
+    } else {
+      console.log('Quiz results saved successfully!')
+    }
 
   } catch (error) {
     console.error('Error saving quiz results:', error)
   }
 }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
